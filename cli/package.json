@@ -1,0 +1,19 @@
+{
+  "name": "@fileri/share",
+  "version": "0.1.0",
+  "description": "CLI-first file sharing",
+  "type": "module",
+  "bin": {
+    "share": "./dist/share"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --compile --outfile dist/share",
+    "dev": "bun run src/index.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  },
+  "license": "MIT"
+}
