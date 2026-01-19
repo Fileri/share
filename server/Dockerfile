@@ -6,14 +6,11 @@ WORKDIR /app
 # Install git for go mod download
 RUN apk add --no-cache git
 
-# Copy go mod files
-COPY go.mod go.sum* ./
+# Copy source code first (for go mod tidy)
+COPY . .
 
 # Download dependencies
-RUN go mod download
-
-# Copy source code
-COPY . .
+RUN go mod tidy
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /share-server ./cmd/server

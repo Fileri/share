@@ -30,7 +30,7 @@ jobs:
       - name: Build server
         working-directory: ./server
         run: |
-          go mod download
+          go mod tidy
           go build -v ./cmd/server
 
       - name: Set up Docker Buildx
