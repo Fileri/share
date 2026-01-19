@@ -108,7 +108,7 @@ func (h *Handler) serveFile(w http.ResponseWriter, r *http.Request, id string, v
 			return
 		}
 
-		rendered, err := render.Render(item.ContentType, data, item.Filename)
+		rendered, err := render.Render(item.ContentType, data, item.Filename, id)
 		if err != nil {
 			// Fall back to raw
 			w.Header().Set("Content-Type", item.ContentType)

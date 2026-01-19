@@ -46,19 +46,19 @@ func CanRender(contentType string) bool {
 }
 
 // Render converts content to HTML for browser display
-func Render(contentType string, content []byte, filename string) ([]byte, error) {
+func Render(contentType string, content []byte, filename string, id string) ([]byte, error) {
 	ct := strings.ToLower(contentType)
 
 	// Markdown
 	if strings.Contains(ct, "markdown") {
-		return renderMarkdown(content, filename)
+		return renderMarkdown(content, filename, id)
 	}
 
 	// Everything else as code with syntax highlighting
-	return renderCode(content, filename, detectLanguage(contentType, filename))
+	return renderCode(content, filename, detectLanguage(contentType, filename), id)
 }
 
-func renderMarkdown(content []byte, filename string) ([]byte, error) {
+func renderMarkdown(content []byte, filename string, id string) ([]byte, error) {
 	title := filename
 	if title == "" {
 		title = "Shared Content"
@@ -69,6 +69,7 @@ func renderMarkdown(content []byte, filename string) ([]byte, error) {
 
 	result := strings.ReplaceAll(markdownTemplate, "{{TITLE}}", html.EscapeString(title))
 	result = strings.ReplaceAll(result, "{{CONTENT}}", escaped)
+	result = strings.ReplaceAll(result, "{{ID}}", id)
 
 	return []byte(result), nil
 }
@@ -82,7 +83,7 @@ func escapeForJSTemplateLiteral(s string) string {
 	return s
 }
 
-func renderCode(content []byte, filename string, language string) ([]byte, error) {
+func renderCode(content []byte, filename string, language string, id string) ([]byte, error) {
 	title := filename
 	if title == "" {
 		title = "Shared Content"
@@ -94,6 +95,7 @@ func renderCode(content []byte, filename string, language string) ([]byte, error
 	result := strings.ReplaceAll(codeTemplate, "{{TITLE}}", html.EscapeString(title))
 	result = strings.ReplaceAll(result, "{{LANGUAGE}}", language)
 	result = strings.ReplaceAll(result, "{{CONTENT}}", escaped)
+	result = strings.ReplaceAll(result, "{{ID}}", id)
 
 	return []byte(result), nil
 }
