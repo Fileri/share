@@ -64,13 +64,22 @@ func renderMarkdown(content []byte, filename string) ([]byte, error) {
 		title = "Shared Content"
 	}
 
-	// Escape content for embedding in HTML
-	escaped := html.EscapeString(string(content))
+	// Escape content for embedding in JavaScript template literal
+	escaped := escapeForJSTemplateLiteral(string(content))
 
 	result := strings.ReplaceAll(markdownTemplate, "{{TITLE}}", html.EscapeString(title))
 	result = strings.ReplaceAll(result, "{{CONTENT}}", escaped)
 
 	return []byte(result), nil
+}
+
+// escapeForJSTemplateLiteral escapes content for safe embedding in JS template literals
+func escapeForJSTemplateLiteral(s string) string {
+	// Escape backslashes first, then backticks, then ${
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "`", "\\`")
+	s = strings.ReplaceAll(s, "${", "\\${")
+	return s
 }
 
 func renderCode(content []byte, filename string, language string) ([]byte, error) {
