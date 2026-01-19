@@ -23,9 +23,27 @@ async function main() {
     process.exit(0);
   }
 
-  if (values.help || positionals.length === 0) {
+  // Check for stdin input (piped data)
+  const hasStdin = !process.stdin.isTTY;
+
+  if (values.help) {
     printHelp();
     process.exit(0);
+  }
+
+  // No args and no stdin = show help
+  if (positionals.length === 0 && !hasStdin) {
+    printHelp();
+    process.exit(0);
+  }
+
+  // Handle stdin with no args
+  if (positionals.length === 0 && hasStdin) {
+    await upload("-", {
+      raw: values.raw as boolean,
+      type: values.type as string,
+    });
+    return;
   }
 
   const command = positionals[0];
