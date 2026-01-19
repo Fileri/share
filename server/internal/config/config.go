@@ -1,8 +1,10 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -38,7 +40,8 @@ type LimitsConfig struct {
 
 // AuthConfig holds authentication configuration
 type AuthConfig struct {
-	Tokens []string `yaml:"tokens"` // valid API tokens
+	Tokens    []string `yaml:"tokens"`     // valid API tokens
+	TokenFile string   `yaml:"token_file"` // path to file containing tokens (one per line)
 }
 
 // Load reads configuration from file
@@ -95,4 +98,35 @@ func (c *Config) applyDefaults() {
 	if c.Limits.MaxFileSize == "" {
 		c.Limits.MaxFileSize = "0"
 	}
+
+	// Load tokens from file if specified
+	if c.Auth.TokenFile != "" {
+		tokens, err := loadTokensFromFile(c.Auth.TokenFile)
+		if err == nil {
+			c.Auth.Tokens = append(c.Auth.Tokens, tokens...)
+		}
+	}
+
+	// Also check SHARE_AUTH_TOKEN env var
+	if envToken := os.Getenv("SHARE_AUTH_TOKEN"); envToken != "" {
+		c.Auth.Tokens = append(c.Auth.Tokens, envToken)
+	}
+}
+
+func loadTokensFromFile(path string) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var tokens []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		token := strings.TrimSpace(scanner.Text())
+		if token != "" && !strings.HasPrefix(token, "#") {
+			tokens = append(tokens, token)
+		}
+	}
+	return tokens, scanner.Err()
 }
