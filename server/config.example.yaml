@@ -1,0 +1,35 @@
+# share server configuration
+
+# Domain and base URL
+domain: v10b.no
+base_url: https://v10b.no
+
+# Server listen address
+listen_addr: :8080
+
+# Storage configuration
+storage:
+  # Storage type: "filesystem" or "s3"
+  type: filesystem
+
+  # For filesystem storage
+  path: ./data
+
+  # For S3 storage (GCS, MinIO, AWS S3, etc.)
+  # type: s3
+  # endpoint: https://storage.googleapis.com
+  # bucket: share-files
+  # region: europe-north1
+  # access_key_id: your-access-key
+  # secret_access_key: your-secret-key
+
+# Limits (0 = unlimited)
+limits:
+  max_file_size: "0"
+  rate_limit: "0"
+  storage_quota: "0"
+
+# Authentication
+auth:
+  tokens:
+    - your-secret-token-here
