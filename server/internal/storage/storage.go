@@ -17,7 +17,7 @@ type Item struct {
 	Size        int64     `json:"size"`
 	RenderMode  string    `json:"render_mode"` // "auto", "raw", "render"
 	CreatedAt   time.Time `json:"created_at"`
-	OwnerToken  string    `json:"-"` // not exposed in API
+	OwnerToken  string    `json:"owner_token,omitempty"` // stored but not exposed in API responses
 }
 
 // Storage defines the interface for file storage backends
