@@ -51,33 +51,94 @@ async function main() {
 }
 
 function printHelp() {
-  console.log(`share - CLI-first file sharing
+  console.log(`share - CLI-first file sharing service
 
-USAGE:
-  share <file>              Upload a file
-  cat <file> | share        Upload from stdin
-  share list                List your uploads
-  share delete <id>         Delete an upload
+DESCRIPTION:
+  Upload files and get shareable URLs. Supports text, code, markdown,
+  images, and any file type. Text/code/markdown files are rendered with
+  syntax highlighting in the browser. Original files always downloadable.
+
+COMMANDS:
+  share <file>                Upload file, print URL to stdout
+  share <file1> <file2> ...   Upload multiple files (not yet supported)
+  share list                  List all uploads for current token
+  share delete <id>           Delete upload by ID (24-char hex string)
+  share info <id>             Show upload metadata (not yet supported)
+
+STDIN:
+  <command> | share           Upload piped content as text/plain
+  share -                     Explicit stdin read
 
 OPTIONS:
-  -r, --raw                 Default to raw view (no rendering)
-  -t, --type <type>         Force content type
-  -s, --server <url>        Override server URL
-  -h, --help                Show this help
-  -v, --version             Show version
+  -r, --raw                   Set default view to raw (no rendering)
+  -t, --type <mime>           Force content-type (e.g., text/markdown)
+  -s, --server <url>          Override server URL for this command
+  -h, --help                  Show this help message
+  -v, --version               Show version number
 
-EXAMPLES:
-  share notes.md            Upload and get URL
-  echo "hello" | share      Upload from stdin
-  share --raw script.py     Upload without rendering
-  share list                Show all your uploads
-  share delete abc123       Delete an upload
+OUTPUT:
+  upload    Prints URL only to stdout (e.g., https://v10b.no/abc123def456)
+  list      Prints table: ID, SIZE, CREATED, FILENAME
+  delete    Prints "Deleted: <id>" on success
+
+EXIT CODES:
+  0         Success
+  1         Error (auth failure, network error, not found, etc.)
+
+URL STRUCTURE:
+  /<id>                       View with default rendering
+  /<id>/raw                   Download original file
+  /<id>/render                Force rendered view (markdown/code)
 
 CONFIGURATION:
-  ~/.config/share/config.yaml
+  File: ~/.config/share/config.yaml
 
-    server: https://your-domain.com
-    token: your-api-token
+  Required fields:
+    server: <url>             Server URL (e.g., https://share.example.com)
+    token: <token>            Auth token (string or op:// reference)
+
+  Example with 1Password:
+    server: https://share.tail848835.ts.net
+    token: op://Development/share-server/token
+
+  Environment variables (override config file):
+    SHARE_SERVER              Server URL
+    SHARE_TOKEN               Auth token
+
+AUTHENTICATION:
+  Token is sent via Authorization header. Obtain from server admin.
+  Supports 1Password CLI references (op://vault/item/field).
+
+CONTENT TYPES:
+  Auto-detected from file extension. Override with --type flag.
+  Rendered in browser: .md, .txt, .json, .yaml, .py, .js, .ts, .go, etc.
+  Served as-is: images, PDFs, binaries, HTML
+
+EXAMPLES:
+  # Upload a markdown file
+  share README.md
+  # Output: https://v10b.no/a1b2c3d4e5f6g7h8
+
+  # Upload and copy URL to clipboard (macOS)
+  share notes.md | pbcopy
+
+  # Upload code without syntax highlighting
+  share --raw script.py
+
+  # Pipe command output
+  kubectl get pods | share
+
+  # Force content type
+  share --type text/markdown notes.txt
+
+  # List your uploads
+  share list
+
+  # Delete an upload
+  share delete a1b2c3d4e5f6g7h8
+
+REPOSITORY:
+  https://github.com/Fileri/share
 `);
 }
 
