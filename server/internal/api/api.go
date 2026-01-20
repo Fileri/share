@@ -2,7 +2,9 @@ package api
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -19,21 +21,51 @@ import (
 
 // Handler is the main API handler
 type Handler struct {
-	config  *config.Config
-	storage storage.Storage
-	mux     *http.ServeMux
+	config      *config.Config
+	storage     storage.Storage
+	mux         *http.ServeMux
+	maxFileSize int64 // 0 means unlimited
 }
 
 // New creates a new API handler
 func New(cfg *config.Config, store storage.Storage) *Handler {
 	h := &Handler{
-		config:  cfg,
-		storage: store,
-		mux:     http.NewServeMux(),
+		config:      cfg,
+		storage:     store,
+		mux:         http.NewServeMux(),
+		maxFileSize: parseSize(cfg.Limits.MaxFileSize),
 	}
 
 	h.setupRoutes()
 	return h
+}
+
+// parseSize converts size strings like "100MB", "1GB" to bytes
+func parseSize(s string) int64 {
+	if s == "" || s == "0" {
+		return 0 // unlimited
+	}
+
+	s = strings.ToUpper(strings.TrimSpace(s))
+	multiplier := int64(1)
+
+	switch {
+	case strings.HasSuffix(s, "GB"):
+		multiplier = 1024 * 1024 * 1024
+		s = strings.TrimSuffix(s, "GB")
+	case strings.HasSuffix(s, "MB"):
+		multiplier = 1024 * 1024
+		s = strings.TrimSuffix(s, "MB")
+	case strings.HasSuffix(s, "KB"):
+		multiplier = 1024
+		s = strings.TrimSuffix(s, "KB")
+	case strings.HasSuffix(s, "B"):
+		s = strings.TrimSuffix(s, "B")
+	}
+
+	var size int64
+	fmt.Sscanf(strings.TrimSpace(s), "%d", &size)
+	return size * multiplier
 }
 
 func (h *Handler) setupRoutes() {
@@ -48,6 +80,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Add security headers
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Robots-Tag", "noindex, nofollow")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	// CSP: Allow scripts from CDN for highlight.js, marked, DOMPurify
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none';")
 
 	h.mux.ServeHTTP(w, r)
 }
@@ -124,7 +160,9 @@ func (h *Handler) serveFile(w http.ResponseWriter, r *http.Request, id string, v
 	// Serve raw file
 	w.Header().Set("Content-Type", item.ContentType)
 	if item.Filename != "" {
-		w.Header().Set("Content-Disposition", "inline; filename=\""+item.Filename+"\"")
+		// Safely format Content-Disposition to prevent header injection
+		disposition := mime.FormatMediaType("inline", map[string]string{"filename": item.Filename})
+		w.Header().Set("Content-Disposition", disposition)
 	}
 	io.Copy(w, content)
 }
@@ -145,6 +183,11 @@ func (h *Handler) handleUpload(w http.ResponseWriter, r *http.Request) {
 	if !h.isValidToken(token) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
+	}
+
+	// Enforce file size limit
+	if h.maxFileSize > 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, h.maxFileSize)
 	}
 
 	// Parse multipart form or read raw body
@@ -230,16 +273,30 @@ func (h *Handler) handleList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte("[\n"))
-	for i, item := range items {
-		if i > 0 {
-			w.Write([]byte(",\n"))
-		}
-		url := h.config.BaseURL + "/" + item.ID
-		w.Write([]byte(`  {"id":"` + item.ID + `","url":"` + url + `","filename":"` + item.Filename + `","size":` + formatSize(item.Size) + `,"created":"` + item.CreatedAt.Format(time.RFC3339) + `"}`))
+	// Build response with proper JSON encoding
+	type listItem struct {
+		ID       string `json:"id"`
+		URL      string `json:"url"`
+		Filename string `json:"filename"`
+		Size     int64  `json:"size"`
+		Created  string `json:"created"`
 	}
-	w.Write([]byte("\n]\n"))
+
+	response := make([]listItem, len(items))
+	for i, item := range items {
+		response[i] = listItem{
+			ID:       item.ID,
+			URL:      h.config.BaseURL + "/" + item.ID,
+			Filename: item.Filename,
+			Size:     item.Size,
+			Created:  item.CreatedAt.Format(time.RFC3339),
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Failed to encode response: %v", err)
+	}
 }
 
 func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
@@ -296,8 +353,9 @@ func (h *Handler) isValidToken(token string) bool {
 	if token == "" {
 		return false
 	}
+	// Use constant-time comparison to prevent timing attacks
 	for _, t := range h.config.Auth.Tokens {
-		if t == token {
+		if subtle.ConstantTimeCompare([]byte(t), []byte(token)) == 1 {
 			return true
 		}
 	}
