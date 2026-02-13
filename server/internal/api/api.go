@@ -24,16 +24,20 @@ type Handler struct {
 	config      *config.Config
 	storage     storage.Storage
 	mux         *http.ServeMux
+	webdav      *WebDAVHandler
 	maxFileSize int64 // 0 means unlimited
 }
 
 // New creates a new API handler
 func New(cfg *config.Config, store storage.Storage) *Handler {
+	maxFileSize := parseSize(cfg.Limits.MaxFileSize)
+
 	h := &Handler{
 		config:      cfg,
 		storage:     store,
 		mux:         http.NewServeMux(),
-		maxFileSize: parseSize(cfg.Limits.MaxFileSize),
+		webdav:      NewWebDAV(store, cfg.Auth.Tokens, maxFileSize),
+		maxFileSize: maxFileSize,
 	}
 
 	h.setupRoutes()
@@ -74,6 +78,7 @@ func (h *Handler) setupRoutes() {
 	h.mux.HandleFunc("/api/list", h.handleList)
 	h.mux.HandleFunc("/api/delete/", h.handleDelete)
 	h.mux.HandleFunc("/robots.txt", h.handleRobots)
+	h.mux.Handle("/webdav/", h.webdav)
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
