@@ -3,6 +3,7 @@ package render
 import (
 	"bytes"
 	_ "embed"
+	"fmt"
 	"html"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,9 @@ var markdownTemplate string
 
 //go:embed templates/code.html
 var codeTemplate string
+
+//go:embed templates/video.html
+var videoTemplate string
 
 // CanRender returns true if the content type can be rendered
 func CanRender(contentType string) bool {
@@ -25,6 +29,11 @@ func CanRender(contentType string) bool {
 
 	// Code/text files that benefit from syntax highlighting
 	if strings.HasPrefix(ct, "text/") && !strings.Contains(ct, "html") {
+		return true
+	}
+
+	// Video/audio
+	if strings.HasPrefix(ct, "video/") || strings.HasPrefix(ct, "audio/") {
 		return true
 	}
 
@@ -54,6 +63,11 @@ func Render(contentType string, content []byte, filename string, id string) ([]b
 		return renderMarkdown(content, filename, id)
 	}
 
+	// Video/audio
+	if strings.HasPrefix(ct, "video/") || strings.HasPrefix(ct, "audio/") {
+		return renderMedia(ct, filename, id)
+	}
+
 	// Everything else as code with syntax highlighting
 	return renderCode(content, filename, detectLanguage(contentType, filename), id)
 }
@@ -70,6 +84,27 @@ func renderMarkdown(content []byte, filename string, id string) ([]byte, error) 
 	result := strings.ReplaceAll(markdownTemplate, "{{TITLE}}", html.EscapeString(title))
 	result = strings.ReplaceAll(result, "{{CONTENT}}", escaped)
 	result = strings.ReplaceAll(result, "{{ID}}", id)
+
+	return []byte(result), nil
+}
+
+func renderMedia(contentType string, filename string, id string) ([]byte, error) {
+	title := filename
+	if title == "" {
+		title = "Shared Content"
+	}
+
+	rawURL := id + "/raw"
+	var player string
+	if strings.HasPrefix(contentType, "video/") {
+		player = fmt.Sprintf(`<video controls autoplay preload="auto"><source src="%s" type="%s">Your browser does not support video playback.</video>`, rawURL, contentType)
+	} else {
+		player = fmt.Sprintf(`<audio controls preload="auto"><source src="%s" type="%s">Your browser does not support audio playback.</audio>`, rawURL, contentType)
+	}
+
+	result := strings.ReplaceAll(videoTemplate, "{{TITLE}}", html.EscapeString(title))
+	result = strings.ReplaceAll(result, "{{ID}}", id)
+	result = strings.ReplaceAll(result, "{{PLAYER}}", player)
 
 	return []byte(result), nil
 }
