@@ -1,12 +1,5 @@
 import { loadConfig } from "../config";
-
-interface ListItem {
-  id: string;
-  url: string;
-  filename: string;
-  size: number;
-  created: string;
-}
+import type { ListItem } from "../types";
 
 export async function list(): Promise<void> {
   const config = await loadConfig();

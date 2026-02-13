@@ -31,9 +31,14 @@ async function main() {
     process.exit(0);
   }
 
-  // No args and no stdin = show help
+  // No args and no stdin = launch TUI (if TTY) or show help
   if (positionals.length === 0 && !hasStdin) {
-    printHelp();
+    if (process.stdout.isTTY) {
+      const { runTUI } = await import("./tui/index");
+      await runTUI();
+    } else {
+      printHelp();
+    }
     process.exit(0);
   }
 
